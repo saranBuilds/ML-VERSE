@@ -1,7 +1,7 @@
 from upload import upload_dataset
 from data_cleaning import remove_columns, data_cleaning_pipeline
 from encoding import check_categorical_columns,encode_categorical_columns,encode_strategy
-
+from eda import describe,basic_visualization
 while True:
     choice = input("1. ML pipeline\n2. Exit\nEnter Choice: ")
 
@@ -20,6 +20,9 @@ while True:
                 "\n2. Remove columns"
                 "\n3. Handle missing values"
                 "\n4. Check categorical columns"
+                "\n5. describe"
+                "\n6. basic_visualization"
+                "\n7. model selection"
                 "\nn. Exit"
                 "\nEnter Choice: "
             )
@@ -41,6 +44,14 @@ while True:
                 if cat_cols:
                     stratgy = encode_strategy(df,cat_cols)
                     df = encode_categorical_columns(df,stratgy)
+            
+            elif choice == '5':
+                describe(df)
+            elif choice == '6':
+                basic_visualization(df)
+                
+
+
 
 
             elif choice == 'n':
