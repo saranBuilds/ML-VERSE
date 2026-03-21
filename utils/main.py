@@ -2,6 +2,7 @@ from upload import upload_dataset
 from data_cleaning import remove_columns, data_cleaning_pipeline
 from encoding import check_categorical_columns,encode_categorical_columns,encode_strategy
 from eda import describe,basic_visualization
+from model_build.model_build import run_model_selection
 while True:
     choice = input("1. ML pipeline\n2. Exit\nEnter Choice: ")
 
@@ -49,11 +50,9 @@ while True:
                 describe(df)
             elif choice == '6':
                 basic_visualization(df)
-                
-
-
-
-
+    
+            elif choice == '7':
+                domain, codomain1, codomain2, x, y = run_model_selection(df)
             elif choice == 'n':
                 break
 
