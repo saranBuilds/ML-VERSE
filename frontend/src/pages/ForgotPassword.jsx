@@ -43,7 +43,7 @@ export default function ForgotPassword() {
       setLoading(true)
       setError("")
       setSuccess("")
-      const res = await api.post("/forgot-password/verify", { otp })
+      const res = await api.post("/auth/forgot-password/reset", { otp })
       setSuccess(res.data.message)
       setStep(3)
     } catch (err) {
@@ -53,18 +53,23 @@ export default function ForgotPassword() {
     }
   }
 
-  const resetPassword = async () => {
-    try {
-      setLoading(true)
-      setError("")
-      await api.post("/forgot-password/reset", { new_password: password })
-      navigate("/")
-    } catch (err) {
-      setError(err.response?.data?.message || "Password reset failed")
-    } finally {
-      setLoading(false)
-    }
+const resetPassword = async () => {
+  try {
+    setLoading(true)
+    setError("")
+
+    await api.post("/auth/forgot-password/reset", {
+      otp,
+      new_password: password
+    })
+
+    navigate("/")
+  } catch (err) {
+    setError(err.response?.data?.message || "Password reset failed")
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !loading) {
@@ -147,7 +152,6 @@ export default function ForgotPassword() {
               </button>
             </>
           )}
-
           {step === 2 && (
             <>
               <input
@@ -156,18 +160,7 @@ export default function ForgotPassword() {
                 onChange={e => setOtp(e.target.value)}
                 onKeyPress={handleKeyPress}
               />
-              <button
-                onClick={verifyOtp}
-                disabled={loading || !otp}
-                className={`w-full py-3 rounded-xl text-white bg-gradient-to-r ${currentStep.color} disabled:opacity-50`}
-              >
-                {loading ? "Verifying..." : "Verify OTP"}
-              </button>
-            </>
-          )}
 
-          {step === 3 && (
-            <>
               <input
                 type="password"
                 className="w-full mb-4 p-3 border rounded-xl"
@@ -175,15 +168,16 @@ export default function ForgotPassword() {
                 onChange={e => setPassword(e.target.value)}
                 onKeyPress={handleKeyPress}
               />
+
               <button
                 onClick={resetPassword}
-                disabled={loading || password.length < 4}
+                disabled={loading || !otp || password.length < 4}
                 className={`w-full py-3 rounded-xl text-white bg-gradient-to-r ${currentStep.color} disabled:opacity-50`}
               >
-                {loading ? "Resetting..." : "Reset Password"}
+                {loading ? "Resetting..." : "Verify & Reset"}
               </button>
             </>
-          )}
+            )}
 
           <div className="mt-6 text-center">
             <button

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, session, current_app
 from datetime import datetime, timezone, timedelta
 import jwt
 
-from db.mysql import (
+from backend.db.mysql import (
     check_user_credentials,
     register_user,
     check_user_exist,   
@@ -10,8 +10,8 @@ from db.mysql import (
     get_userdata,
     
 )
-from backend.app.authentication.jwt import token_required
-from backend.app.authentication.otp import send_otp
+from .jwt import token_required
+from .otp import send_otp
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -55,6 +55,11 @@ def signup_verify():
 
     if not s:
         return jsonify({"message": "Session expired"}), 409
+    if not data:
+        return jsonify({"message": "No data received"}), 400
+    otp = data.get("otp")
+    if not otp:
+        return jsonify({"message": "OTP is required"}), 400
 
     created = datetime.fromisoformat(s["time"])
     if datetime.now(timezone.utc) - created > timedelta(
@@ -63,42 +68,74 @@ def signup_verify():
         session.clear()
         return jsonify({"message": "OTP expired"}), 409
 
-    if data["otp"] != s["otp"]:
-        return jsonify({"message": "Invalid OTP"}), 401
+    print("otp :", otp, s["otp"])
+
+    if otp != s["otp"]:
+        return jsonify({"message": f"Invalid OTP"}), 401
 
     register_user(
         s["user"]["username"],
         s["user"]["email"],
         s["user"]["password"]
     )
+
     session.clear()
     return jsonify({"message": "User registered"})
 
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
-    email = request.json["email"]
+    data = request.get_json()
+
+    if not data or "email" not in data:
+        return jsonify({"message": "Email is required"}), 400
+
+    email = data.get("email")
+
     if not check_user_exist(email=email)["email_exists"]:
         return jsonify({"message": "Email not registered"}), 404
 
     otp = send_otp(email)
+
     session["fp"] = {
         "email": email,
         "otp": str(otp),
         "time": datetime.now(timezone.utc).isoformat()
     }
-    return jsonify({"message": "OTP sent"})
+
+    return jsonify({"message": "OTP sent"}), 200
 
 @auth_bp.route("/forgot-password/reset", methods=["POST"])
 def reset_password():
     data = request.get_json()
-    fp = session.get("fp")
+    server_otp = session.get("fp")
 
-    if not fp or data["otp"] != fp["otp"]:
+    if not data:
+        return jsonify({"message": "No data received"}), 400
+
+    user_otp = data.get("otp")
+    new_password = data.get("new_password")
+
+    if not user_otp or not new_password:
+        return jsonify({"message": "OTP and new password required"}), 400
+
+    if not server_otp:
+        return jsonify({"message": "Session expired"}), 409
+
+    created = datetime.fromisoformat(server_otp["time"])
+    if datetime.now(timezone.utc) - created > timedelta(
+        seconds=current_app.config["OTP_EXPIRY_SECONDS"]
+    ):
+        session.pop("fp", None)
+        return jsonify({"message": "OTP expired"}), 409
+
+    if str(user_otp) != str(server_otp["otp"]):
         return jsonify({"message": "Invalid OTP"}), 401
 
-    update_password(fp["email"], data["new_password"])
-    session.clear()
-    return jsonify({"message": "Password updated"})
+    update_password(server_otp["email"], new_password)
+
+    session.pop("fp", None)
+
+    return jsonify({"message": "Password updated"}), 200
 
 @auth_bp.route("/get-user-data",methods=["POST"])
 def get():

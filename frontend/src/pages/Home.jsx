@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../api"
 import Sidebar from "./Sidebar"
 
-import MLprocess from "./Main/MLprocess"
+import MLprocess from "./Main/MLprocess/MLprocess"
 import DataScienceProc from "./Main/DataScienceProc"
 import UserSettings from "./Main/UserSettings"
 import DatasetMart from "./Main/DatasetMart"
@@ -11,27 +11,58 @@ import DatasetMart from "./Main/DatasetMart"
 export default function Home() {
   const [user, setUser] = useState("")
   const [activePage, setActivePage] = useState("ml")
+  const [loading, setLoading] = useState(true)
+
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get("/home", {
-      headers: { Authorization: "Bearer " + localStorage.getItem("token") }
-    }).then(res => setUser(res.data.user))
-  }, [])
+    const token = localStorage.getItem("token")
 
-  const renderPage = () => {
-    if (activePage === "ml") return <MLprocess />
-    if (activePage === "ds") return <DataScienceProc />
-    if (activePage === "datamart") return <DatasetMart />
-    if (activePage === "settings") return <UserSettings user={user} />
+    if (!token) {
+      navigate("/login")
+      return
+    }
+
+    const fetchUser = async () => {
+      try {
+        const res = await api.get("/home", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        setUser(res.data.user)
+      } catch {
+        localStorage.removeItem("token")
+        navigate("/login")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUser()
+  }, [navigate])
+
+  const pages = useMemo(() => ({
+    ml: <MLprocess />,
+    ds: <DataScienceProc />,
+    datamart: <DatasetMart />,
+    settings: <UserSettings user={user} />
+  }), [user])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        Loading...
+      </div>
+    )
   }
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar user={user} setActivePage={setActivePage} />
-      <main className="flex-1 p-8">
-        {renderPage()}
-        <div></div>
+      <Sidebar user={user} activePage={activePage} setActivePage={setActivePage} />
+
+      <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          {pages[activePage]}
+        </div>
       </main>
     </div>
   )

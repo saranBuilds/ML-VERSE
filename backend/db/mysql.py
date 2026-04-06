@@ -1,6 +1,6 @@
 import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
-from config import Config
+from backend.config import Config
 
 def connect_db():
     conn = mysql.connector.connect(

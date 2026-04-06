@@ -46,7 +46,7 @@ export default function Signup() {
     try {
       setLoading(true)
       setError("")
-      await api.post("/signup/authenticate", { user_otp: otp })
+      await api.post("/auth/signup/verify", {otp})
       navigate("/")
     } catch (err) {
       setError(err.response?.data?.message || "Invalid OTP")
