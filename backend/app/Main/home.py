@@ -42,7 +42,6 @@ def category(token_data):
     })
 
 
-
 UPLOAD_FOLDER = "uploads"
 
 @home_bp.route('/home/category/dataset_upload', methods=['POST'])
@@ -89,6 +88,7 @@ def dataset_upload(token_data):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
 @home_bp.route('/home/mlprocess/DataCleaning/remove_columns',methods=['POST'])
 @token_required
 def remove_columns(token_data):
@@ -528,6 +528,214 @@ def predict(token_data):
             "is_classification": is_classification
         }), 200
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@home_bp.route('/home/mlprocess/clustering/elbow', methods=['POST', 'GET'])
+@token_required
+def clustering_elbow(token_data):
+    try:
+        from sklearn.cluster import KMeans
+        import numpy as np
+
+        dataset_path = session.get('dataset_path')
+        if not dataset_path:
+            return jsonify({"error": "No dataset found in session."}), 400
+            
+        if dataset_path.endswith(".csv"):
+            df = pd.read_csv(dataset_path)
+        else:
+            df = pd.read_excel(dataset_path)
+            
+        # Drop missing values if any remain
+        df = df.dropna()
+        
+        # Convert any remaining categorical to dummies aggressively to prevent fit errors
+        X = pd.get_dummies(df, drop_first=True)
+        
+        # Limit K up to 10 or length of data - 1
+        max_k = min(11, len(X))
+        k_values = list(range(1, max_k))
+        inertia = []
+        
+        for k in k_values:
+            model = KMeans(n_clusters=k, random_state=42, n_init=10)
+            model.fit(X)
+            inertia.append(float(model.inertia_))
+            
+        return jsonify({
+            "k_values": k_values,
+            "inertia": inertia
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@home_bp.route('/home/mlprocess/clustering', methods=['POST'])
+@token_required
+def clustering(token_data):
+    try:
+        from sklearn.metrics import silhouette_score, davies_bouldin_score
+        import joblib
+        import os
+        
+        from backend.app.Main.clustering import (
+            get_kmeans, get_dbscan, get_agglomerative, get_gmm
+        )
+        
+        data = request.get_json()
+        model_name = data.get('model_name')
+        params = data.get('params', {})
+        
+        dataset_path = session.get('dataset_path')
+        if not dataset_path:
+            return jsonify({"error": "No dataset found in session."}), 400
+            
+        if dataset_path.endswith(".csv"):
+            df = pd.read_csv(dataset_path)
+        else:
+            df = pd.read_excel(dataset_path)
+            
+        df = df.dropna()
+        X = pd.get_dummies(df, drop_first=True)
+        
+        model_map = {
+            'K-Means': get_kmeans,
+            'DBSCAN': get_dbscan,
+            'Agglomerative Clustering': get_agglomerative,
+            'Gaussian Mixture': get_gmm
+        }
+        
+        if model_name not in model_map:
+            return jsonify({"error": f"Model '{model_name}' not supported"}), 400
+            
+        # Get base model function
+        model_func = model_map[model_name]
+        
+        # Attempt to inject params directly to the factory function if it accepts them
+        # We will parse params specifically or we can just pass them if names match
+        try:
+            model = model_func(**params)
+        except Exception as param_err:
+            print("Warning: unable to set params, using defaults.", param_err)
+            model = model_func()
+            
+        # For clustering we don't have train/test split.
+        labels = model.fit_predict(X)
+        
+        # Calculate metrics (requires at least 2 clusters and not all noise)
+        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        
+        silhouette = 0.0
+        davies_bouldin = 0.0
+        if n_clusters > 1:
+            silhouette = float(silhouette_score(X, labels))
+            davies_bouldin = float(davies_bouldin_score(X, labels))
+            
+        df['Cluster_Labels'] = labels
+        
+        # Save model and dataset
+        model_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, 'model.pkl'))
+        dataset_csv_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, 'dataset.csv'))
+        
+        joblib.dump(model, model_path)
+        df.to_csv(dataset_csv_path, index=False)
+        
+        session['feature_columns'] = list(X.columns)
+        
+        return jsonify({
+            "message": "Model trained successfully!",
+            "model_name": model_name,
+            "silhouette_score": silhouette,
+            "davies_bouldin_score": davies_bouldin,
+            "n_clusters": n_clusters,
+            "feature_columns": list(X.columns)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@home_bp.route('/home/mlprocess/dimensionality_reduction', methods=['POST'])
+@token_required
+def dimensionality_reduction(token_data):
+    try:
+        import joblib
+        import os
+        
+        from backend.app.Main.dimensionality_reduction import (
+            get_pca, get_tsne, get_truncated_svd
+        )
+        
+        data = request.get_json()
+        model_name = data.get('model_name')
+        params = data.get('params', {})
+        
+        dataset_path = session.get('dataset_path')
+        if not dataset_path:
+            return jsonify({"error": "No dataset found in session."}), 400
+            
+        if dataset_path.endswith(".csv"):
+            df = pd.read_csv(dataset_path)
+        else:
+            df = pd.read_excel(dataset_path)
+            
+        df = df.dropna()
+        X = pd.get_dummies(df, drop_first=True)
+        
+        model_map = {
+            'PCA': get_pca,
+            't-SNE': get_tsne,
+            'TruncatedSVD': get_truncated_svd
+        }
+        
+        if model_name not in model_map:
+            return jsonify({"error": f"Model '{model_name}' not supported"}), 400
+            
+        model_func = model_map[model_name]
+        
+        try:
+            model = model_func(**params)
+        except Exception as param_err:
+            print("Warning: unable to set params, using defaults.", param_err)
+            model = model_func()
+            
+        # Fit and transform
+        X_reduced = model.fit_transform(X)
+        
+        # Calculate explained variance ratio sum if applicable
+        explained_variance_sum = None
+        if hasattr(model, 'explained_variance_ratio_'):
+            explained_variance_sum = float(model.explained_variance_ratio_.sum())
+            
+        # Create a new dataframe with the reduced dimensions
+        n_components = X_reduced.shape[1]
+        new_columns = [f"Component_{i+1}" for i in range(n_components)]
+        new_df = pd.DataFrame(X_reduced, columns=new_columns, index=df.index)
+        
+        # Save model and dataset
+        model_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, 'model.pkl'))
+        dataset_csv_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, 'dataset.csv'))
+        
+        joblib.dump(model, model_path)
+        new_df.to_csv(dataset_csv_path, index=False)
+        
+        session['feature_columns'] = list(new_df.columns)
+        
+        return jsonify({
+            "message": "Model trained successfully!",
+            "model_name": model_name,
+            "explained_variance_sum": explained_variance_sum,
+            "original_features": X.shape[1],
+            "reduced_features": n_components,
+            "feature_columns": list(new_df.columns)
+        }), 200
+        
     except Exception as e:
         import traceback
         traceback.print_exc()

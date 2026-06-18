@@ -148,7 +148,7 @@ def get():
     else:
         return jsonify({"message":"user not found"}),400
 
-@auth_bp.route("change-pwd",methods = ["POST"])
+@auth_bp.route("/change-pwd",methods = ["POST"])
 def change():
     data = request.get_json()
     username  = data.get("username")

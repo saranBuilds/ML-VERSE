@@ -1,0 +1,14 @@
+{
+    "test02": {
+        "loan prediction": {
+            "workspace_id": "b2a7eb9b",
+            "workspace_path": "workspace\\test02\\loan prediction",
+            "status": "created"
+        },
+        "gold price": {
+            "workspace_id": "37fb66cd",
+            "workspace_path": "workspace\\test02\\gold price",
+            "status": "created"
+        }
+    }
+}
