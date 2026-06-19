@@ -263,7 +263,7 @@ def regression():
         import joblib
         import os
         
-        from backend.app.Main.regression import (
+        from backend.app.Main.Algorithms.regression import (
             lr_model, ridge_model, svr_model, dt_model, rf_model, xgb_model
         )
         
@@ -351,7 +351,7 @@ def classification():
         import joblib
         import os
         
-        from backend.app.Main.classification import (
+        from backend.app.Main.Algorithms.classification import (
             log_model, gnb_model, mnb_model, bnb_model, knn_model, dt_model,
             rf_model, gb_model, xgb_model, lgb_model, cat_model, svc_model
         )
@@ -565,7 +565,7 @@ def clustering():
         import joblib
         import os
         
-        from backend.app.Main.clustering import (
+        from backend.app.Main.Algorithms.clustering import (
             get_kmeans, get_dbscan, get_agglomerative, get_gmm
         )
         
@@ -649,7 +649,7 @@ def dimensionality_reduction():
         import joblib
         import os
         
-        from backend.app.Main.dimensionality_reduction import (
+        from backend.app.Main.Algorithms.dimensionality_reduction import (
             get_pca, get_tsne, get_truncated_svd
         )
         
