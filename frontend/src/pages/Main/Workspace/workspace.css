@@ -1,0 +1,716 @@
+/* ================================================================
+   Workspace Dashboard & Card Styles
+   Palette: blue-600 → indigo-600 (matches existing Sidebar/Header)
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Root container ─────────────────────────────────────────────── */
+.wsd-root {
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100%;
+  padding: 2rem 0.5rem;
+  animation: wsd-fade-in 0.35s ease;
+}
+
+@keyframes wsd-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.wsd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.wsd-header__left {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.wsd-header__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  flex-shrink: 0;
+}
+
+.wsd-header__icon--muted {
+  background: #e0e7ff;
+  color: #6366f1;
+  box-shadow: none;
+}
+
+.wsd-header__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.wsd-header__sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.wsd-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+/* ── Slot badge ─────────────────────────────────────────────────── */
+.wsd-slot-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  transition: all 0.2s;
+}
+
+.wsd-slot-badge--full {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.wsd-slot-badge__label {
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* ── Icon button (refresh) ──────────────────────────────────────── */
+.wsd-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.wsd-icon-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: rotate(45deg);
+}
+
+/* ── New Workspace button ───────────────────────────────────────── */
+.wsd-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(79, 70, 229, 0.3);
+}
+
+.wsd-new-btn:hover:not(.wsd-new-btn--disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+}
+
+.wsd-new-btn--disabled,
+.wsd-new-btn:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ── Error banner ───────────────────────────────────────────────── */
+.wsd-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.wsd-error-banner__retry {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wsd-error-banner__retry:hover {
+  background: #fee2e2;
+}
+
+/* ── Workspace card grid ────────────────────────────────────────── */
+.wsd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ── Workspace Card ─────────────────────────────────────────────── */
+.workspace-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.5rem 1.25rem 1.2rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  text-align: left;
+  overflow: hidden;
+  min-height: 160px;
+}
+
+.workspace-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.11);
+  border-color: hsl(var(--accent-hue, 221), 85%, 72%);
+}
+
+/* Accent stripe at top */
+.workspace-card__stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--accent-hue, 221), 85%, 60%),
+    hsl(calc(var(--accent-hue, 221) + 30), 75%, 65%)
+  );
+  border-radius: 16px 16px 0 0;
+}
+
+/* Icon */
+.workspace-card__icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: hsl(var(--accent-hue, 221), 85%, 95%);
+  color: hsl(var(--accent-hue, 221), 85%, 48%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.875rem;
+  transition: background 0.2s;
+}
+
+.workspace-card:hover .workspace-card__icon-wrap {
+  background: hsl(var(--accent-hue, 221), 85%, 88%);
+}
+
+/* Name */
+.workspace-card__name {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* Step progress badge */
+.workspace-card__step-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+/* Date */
+.workspace-card__date {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.73rem;
+  color: #9ca3af;
+  margin-top: auto;
+}
+
+/* Open label — slides in on hover */
+.workspace-card__open-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--accent-hue, 221), 85%, 55%);
+  margin-top: 0.6rem;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s;
+}
+
+.workspace-card:hover .workspace-card__open-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Delete button (top-right trash icon) ───────────────────────── */
+.workspace-card__delete-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  opacity: 0;
+}
+
+.workspace-card:hover .workspace-card__delete-btn {
+  opacity: 1;
+}
+
+.workspace-card__delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+}
+
+/* ── Inline delete-confirm row ──────────────────────────────────── */
+.workspace-card__confirm-row {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 3px 8px 3px 6px;
+  box-shadow: 0 2px 8px rgba(239,68,68,0.12);
+}
+
+.workspace-card__confirm-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.workspace-card__confirm-yes,
+.workspace-card__confirm-no {
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.workspace-card__confirm-yes {
+  background: #ef4444;
+  color: #fff;
+}
+
+.workspace-card__confirm-yes:hover {
+  background: #dc2626;
+}
+
+.workspace-card__confirm-no {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.workspace-card__confirm-no:hover {
+  background: #d1d5db;
+}
+
+/* ── Ghost card ─────────────────────────────────────────────────── */
+.wsd-ghost-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 160px;
+  border-radius: 16px;
+  border: 2px dashed #c7d2fe;
+  background: #f5f7ff;
+  color: #818cf8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 1rem;
+}
+
+.wsd-ghost-card:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #4f46e5;
+  transform: translateY(-2px);
+}
+
+/* ── Loading skeletons ──────────────────────────────────────────── */
+.wsd-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.wsd-skeleton-card {
+  height: 160px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: wsd-shimmer 1.4s infinite;
+}
+
+@keyframes wsd-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.wsd-skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: wsd-shimmer 1.4s infinite;
+  margin-bottom: 0.5rem;
+}
+
+.wsd-skeleton-line--title { width: 160px; height: 20px; }
+.wsd-skeleton-line--sub   { width: 100px; }
+
+/* ── Empty state ────────────────────────────────────────────────── */
+.wsd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 1rem;
+  gap: 0.75rem;
+}
+
+.wsd-empty__icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eff6ff, #eef2ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+  margin-bottom: 0.5rem;
+}
+
+.wsd-empty__title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.wsd-empty__body {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+/* ================================================================
+   Create Workspace Modal
+   ================================================================ */
+.ws-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: wsd-fade-in 0.2s ease;
+  padding: 1rem;
+}
+
+.ws-modal {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  animation: ws-modal-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ws-modal-in {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
+.ws-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1.5rem 1.5rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  position: relative;
+}
+
+.ws-modal__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+}
+
+.ws-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ws-modal__subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.ws-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.ws-modal__close:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.ws-modal__body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ws-modal__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.2rem;
+}
+
+.ws-modal__input {
+  width: 100%;
+  padding: 0.65rem 0.875rem;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  font-size: 0.9rem;
+  color: #111827;
+  outline: none;
+  transition: all 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.ws-modal__input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.ws-modal__input--error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+}
+
+.ws-modal__input:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.ws-modal__error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.ws-modal__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  justify-content: flex-end;
+}
+
+.ws-modal__btn {
+  padding: 0.55rem 1.2rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.18s;
+}
+
+.ws-modal__btn--secondary {
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+}
+
+.ws-modal__btn--secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.ws-modal__btn--primary {
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(79,70,229,0.3);
+}
+
+.ws-modal__btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79,70,229,0.4);
+}
+
+.ws-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Spinner */
+.ws-spinner {
+  animation: ws-spin 0.8s linear infinite;
+}
+
+@keyframes ws-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Workspace context bar (inside MLprocess) ───────────────────── */
+.ws-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border: 1.5px solid #e0e7ff;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.ws-context-bar__back {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ws-context-bar__back:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.ws-context-bar__name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.ws-context-bar__id {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-left: auto;
+  font-family: monospace;
+}

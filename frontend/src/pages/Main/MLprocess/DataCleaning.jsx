@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, ChevronLeft, Trash2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { ChevronRight, ChevronLeft, Trash2, AlertCircle, CheckCircle2, RefreshCw, History } from "lucide-react";
 import api from "../../../api";
 
-export default function DataCleaning({ onNextStep, onPrevStep }) {
+export default function DataCleaning({ onNextStep, onPrevStep, savedRemovedCols = [], savedMissingStrategy = {} }) {
   const [columns, setColumns] = useState([]);
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
   const [removing, setRemoving] = useState(false);
   const [removeSuccess, setRemoveSuccess] = useState("");
-  
+
   const [missingColumns, setMissingColumns] = useState([]);
   const [checkingMissing, setCheckingMissing] = useState(false);
   const [strategies, setStrategies] = useState({});
@@ -15,15 +15,24 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
   const [missingSuccess, setMissingSuccess] = useState("");
   const [noMissingFound, setNoMissingFound] = useState(false);
 
+  // Flags: were these steps already applied in a previous session?
+  const hasSavedRemovedCols    = savedRemovedCols.length > 0;
+  const hasSavedMissingStrategy = Object.keys(savedMissingStrategy).length > 0;
+
   useEffect(() => {
     // Load initial columns from session storage
     const storedCols = JSON.parse(sessionStorage.getItem("columns") || "[]");
     setColumns(storedCols);
-    checkMissingValues(); // Automatically check on mount
+
+    // Only auto-check missing values if missing strategy wasn't already applied
+    if (!hasSavedMissingStrategy) {
+      checkMissingValues();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCheckboxChange = (col) => {
-    setSelectedForRemoval(prev => 
+    setSelectedForRemoval(prev =>
       prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
     );
   };
@@ -37,13 +46,13 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
         remove_col: selectedForRemoval
       });
       setRemoveSuccess(`Successfully removed ${selectedForRemoval.length} columns.`);
-      
+
       // Update local state
       const newCols = columns.filter(c => !selectedForRemoval.includes(c));
       setColumns(newCols);
       sessionStorage.setItem("columns", JSON.stringify(newCols));
       setSelectedForRemoval([]);
-      
+
       // Re-evaluate missing values after removing columns
       checkMissingValues();
     } catch (err) {
@@ -59,12 +68,12 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
       setCheckingMissing(true);
       setNoMissingFound(false);
       setMissingSuccess("");
-      
+
       const res = await api.post("/home/mlprocess/DataCleaning/checking_missing_values");
-      
+
       if (res.data.missing_columns && res.data.missing_columns.length > 0) {
         setMissingColumns(res.data.missing_columns);
-        
+
         // Setup defaults (mean for numeric, mode for categorical)
         const initialStrategies = {};
         res.data.missing_columns.forEach(col => {
@@ -117,20 +126,37 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
       </div>
 
       <div className="p-8 space-y-10">
-        
-        {/* Section 1: Remove Columns */}
+
+        {/* ── Section 1: Remove Columns ──────────────────────────── */}
         <div className="p-6 bg-slate-50 border border-gray-200 rounded-xl">
           <div className="flex items-center gap-2 mb-4">
             <Trash2 className="text-rose-500 w-5 h-5" />
             <h3 className="text-lg font-bold text-slate-800">Remove Columns</h3>
           </div>
           <p className="text-sm text-gray-500 mb-4">Select any columns that are irrelevant to your machine learning task and drop them.</p>
-          
+
+          {/* Previously-applied banner */}
+          {hasSavedRemovedCols && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+              <History className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 mb-1">Previously removed columns (already excluded from dataset)</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {savedRemovedCols.map(col => (
+                    <span key={col} className="px-2 py-0.5 bg-amber-100 border border-amber-300 text-amber-800 text-xs font-medium rounded-md line-through">
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="max-h-48 overflow-y-auto mb-4 border border-gray-200 rounded-lg p-2 bg-white">
             {columns.map(col => (
               <label key={col} className="flex items-center p-2 hover:bg-slate-50 cursor-pointer rounded">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3"
                   checked={selectedForRemoval.includes(col)}
                   onChange={() => handleCheckboxChange(col)}
@@ -158,7 +184,7 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
               Drop Selected Columns
             </button>
           </div>
-          
+
           {removeSuccess && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">
               <CheckCircle2 className="w-4 h-4 mr-2" /> {removeSuccess}
@@ -166,88 +192,197 @@ export default function DataCleaning({ onNextStep, onPrevStep }) {
           )}
         </div>
 
-        {/* Section 2: Missing Values */}
+        {/* ── Section 2: Missing Values ──────────────────────────── */}
         <div className="p-6 bg-slate-50 border border-gray-200 rounded-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="text-amber-500 w-5 h-5" />
               <h3 className="text-lg font-bold text-slate-800">Handle Missing Values</h3>
             </div>
-            <button 
-              onClick={checkMissingValues} 
-              disabled={checkingMissing}
-              className="text-sm flex items-center text-blue-600 hover:text-blue-800 font-medium px-3 py-1 bg-blue-50 rounded-md"
-            >
-              <RefreshCw className={`w-3 h-3 mr-1 ${checkingMissing ? "animate-spin" : ""}`} /> 
-              Re-check
-            </button>
+            {!hasSavedMissingStrategy && (
+              <button
+                onClick={checkMissingValues}
+                disabled={checkingMissing}
+                className="text-sm flex items-center text-blue-600 hover:text-blue-800 font-medium px-3 py-1 bg-blue-50 rounded-md"
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${checkingMissing ? "animate-spin" : ""}`} />
+                Re-check
+              </button>
+            )}
           </div>
           <p className="text-sm text-gray-500 mb-6">Choose how to fill missing data for each impacted column.</p>
 
-          {checkingMissing && missingColumns.length === 0 ? (
-            <div className="py-8 flex justify-center">
-              <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
-            </div>
-          ) : noMissingFound && missingColumns.length === 0 ? (
-            <div className="bg-green-50/50 border border-green-200 p-6 rounded-xl flex flex-col items-center justify-center text-center">
-              <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
-              <p className="font-semibold text-green-800">No missing values found!</p>
-              <p className="text-sm text-green-600/80">Your dataset does not have any missing fields.</p>
-            </div>
-          ) : missingColumns.length > 0 ? (
+          {/* Previously-applied banner */}
+          {hasSavedMissingStrategy ? (
             <div className="space-y-4">
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 border-b border-gray-200 text-gray-700">
-                    <tr>
-                      <th className="px-5 py-3 font-semibold">Column Name</th>
-                      <th className="px-5 py-3 font-semibold">Data Type</th>
-                      <th className="px-5 py-3 font-semibold">Strategy</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {missingColumns.map(col => (
-                      <tr key={col.name} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 font-medium text-slate-700">{col.name}</td>
-                        <td className="px-5 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-md ${col.type === "numeric" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                            {col.type}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          <select 
-                            value={strategies[col.name]} 
-                            onChange={(e) => handleStrategyChange(col.name, e.target.value)}
-                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2 outline-none"
-                          >
-                            <option value="drop">Drop Rows</option>
-                            <option value="mode">Mode (Most Frequent)</option>
-                            {col.type === "numeric" && (
-                              <>
-                                <option value="mean">Mean (Average)</option>
-                                <option value="median">Median (Middle Value)</option>
-                              </>
-                            )}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-800 mb-2">Missing value strategies were previously applied</p>
+                  <div className="border border-green-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-green-100 border-b border-green-200 text-green-800">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold">Column</th>
+                          <th className="px-4 py-2 font-semibold">Applied Strategy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-green-100 bg-white">
+                        {Object.entries(savedMissingStrategy).map(([col, strat]) => (
+                          <tr key={col}>
+                            <td className="px-4 py-2 font-medium text-slate-700">{col}</td>
+                            <td className="px-4 py-2">
+                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded-md uppercase tracking-wide">
+                                {strat}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-green-700/80 mt-2">
+                    These transformations are already applied to your reconstructed dataset. You can re-apply different strategies below if needed.
+                  </p>
+                </div>
               </div>
-              
-              <div className="flex justify-end pt-2">
+
+              {/* Allow re-checking and re-applying */}
+              <div className="flex justify-end">
                 <button
-                  onClick={applyMissingStrategies}
-                  disabled={applyingStrategies}
-                  className="flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-lg font-medium shadow-sm transition-all"
+                  onClick={checkMissingValues}
+                  disabled={checkingMissing}
+                  className="text-sm flex items-center text-blue-600 hover:text-blue-800 font-medium px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg transition-colors"
                 >
-                  {applyingStrategies ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                  Apply Strategies
+                  <RefreshCw className={`w-3 h-3 mr-1.5 ${checkingMissing ? "animate-spin" : ""}`} />
+                  Re-check & Re-apply
                 </button>
               </div>
+
+              {/* Show current check results if re-checked */}
+              {missingColumns.length > 0 && (
+                <div className="space-y-3 mt-2">
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 border-b border-gray-200 text-gray-700">
+                        <tr>
+                          <th className="px-5 py-3 font-semibold">Column Name</th>
+                          <th className="px-5 py-3 font-semibold">Data Type</th>
+                          <th className="px-5 py-3 font-semibold">Strategy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {missingColumns.map(col => (
+                          <tr key={col.name} className="hover:bg-slate-50">
+                            <td className="px-5 py-3 font-medium text-slate-700">{col.name}</td>
+                            <td className="px-5 py-3">
+                              <span className={`px-2 py-1 text-xs rounded-md ${col.type === "numeric" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                {col.type}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3">
+                              <select
+                                value={strategies[col.name]}
+                                onChange={(e) => handleStrategyChange(col.name, e.target.value)}
+                                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2 outline-none"
+                              >
+                                <option value="drop">Drop Rows</option>
+                                <option value="mode">Mode (Most Frequent)</option>
+                                {col.type === "numeric" && (
+                                  <>
+                                    <option value="mean">Mean (Average)</option>
+                                    <option value="median">Median (Middle Value)</option>
+                                  </>
+                                )}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={applyMissingStrategies}
+                      disabled={applyingStrategies}
+                      className="flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-lg font-medium shadow-sm transition-all"
+                    >
+                      {applyingStrategies ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                      Apply Strategies
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : null}
+          ) : (
+            /* Normal flow — no saved strategy yet */
+            <>
+              {checkingMissing && missingColumns.length === 0 ? (
+                <div className="py-8 flex justify-center">
+                  <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
+                </div>
+              ) : noMissingFound && missingColumns.length === 0 ? (
+                <div className="bg-green-50/50 border border-green-200 p-6 rounded-xl flex flex-col items-center justify-center text-center">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
+                  <p className="font-semibold text-green-800">No missing values found!</p>
+                  <p className="text-sm text-green-600/80">Your dataset does not have any missing fields.</p>
+                </div>
+              ) : missingColumns.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 border-b border-gray-200 text-gray-700">
+                        <tr>
+                          <th className="px-5 py-3 font-semibold">Column Name</th>
+                          <th className="px-5 py-3 font-semibold">Data Type</th>
+                          <th className="px-5 py-3 font-semibold">Strategy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {missingColumns.map(col => (
+                          <tr key={col.name} className="hover:bg-slate-50">
+                            <td className="px-5 py-3 font-medium text-slate-700">{col.name}</td>
+                            <td className="px-5 py-3">
+                              <span className={`px-2 py-1 text-xs rounded-md ${col.type === "numeric" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                {col.type}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3">
+                              <select
+                                value={strategies[col.name]}
+                                onChange={(e) => handleStrategyChange(col.name, e.target.value)}
+                                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2 outline-none"
+                              >
+                                <option value="drop">Drop Rows</option>
+                                <option value="mode">Mode (Most Frequent)</option>
+                                {col.type === "numeric" && (
+                                  <>
+                                    <option value="mean">Mean (Average)</option>
+                                    <option value="median">Median (Middle Value)</option>
+                                  </>
+                                )}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={applyMissingStrategies}
+                      disabled={applyingStrategies}
+                      className="flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-lg font-medium shadow-sm transition-all"
+                    >
+                      {applyingStrategies ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                      Apply Strategies
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
 
           {missingSuccess && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">

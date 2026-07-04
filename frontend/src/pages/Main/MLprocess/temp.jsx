@@ -1,17 +1,19 @@
 
 import api from "../../../api";
 
-const sendCategory = async (category, type) => {
+const sendCategory = async (category, type, workspaceId) => {
   try {
     await api.post("/home/category", {
       category,
-      type
+      type,
+      ...(workspaceId ? { workspace_id: workspaceId } : {})
     })
   } catch (err) {
     console.error(err)
   }
 }
-export default function Category({ category, setCategory, type, setType }) {
+
+export default function Category({ category, setCategory, type, setType, workspaceId }) {
   const data = {
     supervised: ["Regression", "Classification"],
     unsupervised: ["Clustering", "Association Rule", "Dimensionality Reduction"]
@@ -34,9 +36,7 @@ export default function Category({ category, setCategory, type, setType }) {
           {["supervised", "unsupervised"].map((item) => (
             <button
               key={item}
-              onClick={() => {
-                setCategory(item)
-              }}
+              onClick={() => setCategory(item)}
               className={`p-4 rounded-xl border
               ${category === item
                 ? "bg-blue-600 text-white"
@@ -57,10 +57,10 @@ export default function Category({ category, setCategory, type, setType }) {
             {options.map((item, index) => (
               <button
                 key={index}
-               onClick={() => {
-  setType(item.toLowerCase())
-  sendCategory(category, item.toLowerCase())
-}}
+                onClick={() => {
+                  setType(item.toLowerCase())
+                  sendCategory(category, item.toLowerCase(), workspaceId)
+                }}
                 className={`p-3 rounded-lg border
                 ${type === item.toLowerCase()
                   ? "bg-blue-100 border-blue-500 text-blue-700"

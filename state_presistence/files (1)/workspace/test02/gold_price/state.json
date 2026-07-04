@@ -1,8 +1,0 @@
-{
-    "current_step": "dataset_upload",
-    "dataset_uploaded": false,
-    "pipeline_built": false,
-    "dataset_status": "empty",
-    "model_status": "not_trained",
-    "results_status": "empty"
-}

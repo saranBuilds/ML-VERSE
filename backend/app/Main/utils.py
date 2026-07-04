@@ -100,16 +100,40 @@ def encode_categorical_columns(df, strategy):
 
 
 
-from sklearn.preprocessing import StandardScaler,RobustScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 
-scaler = StandardScaler()
-robust = RobustScaler()
-def feature_scale(x_train,x_test,scaler="std"):
-    if scaler =="std":
-        x_train_scaled = scaler.fit_transform(x_train)
-        x_test_scaled  = scaler.fit_transform(x_test)
-    elif scaler=="robust":
-        x_train_scaled = robust.fit_transform(x_train)
-        x_test_scaled  = robust.fit_transform(x_test)
-    return x_train_scaled,x_test_scaled
+def feature_scale(df: pd.DataFrame, strategy: dict) -> pd.DataFrame:
+    """
+    Apply column-level scaling according to `strategy`.
+
+    strategy keys are column names; values are one of:
+        'standard'   – StandardScaler (zero mean, unit variance)
+        'minmax'     – MinMaxScaler   (0 to 1 range)
+        'robust'     – RobustScaler   (median-based, outlier-resistant)
+
+    Only numeric columns that exist in the dataframe are scaled.
+    Non-numeric columns are silently skipped.
+    """
+    df = df.copy()
+
+    for col, method in strategy.items():
+        if col not in df.columns:
+            continue
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+
+        values = df[[col]].astype(float)
+
+        if method == "standard" or method == "std":
+            scaler = StandardScaler()
+        elif method == "minmax":
+            scaler = MinMaxScaler()
+        elif method == "robust":
+            scaler = RobustScaler()
+        else:
+            continue  # unknown method → skip
+
+        df[col] = scaler.fit_transform(values).flatten()
+
+    return df

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export default function DatasetPreview({ onNextStep, onPrevStep }) {
   const [columns, setColumns] = useState([]);
@@ -22,12 +22,6 @@ export default function DatasetPreview({ onNextStep, onPrevStep }) {
           Dataset Preview <span className="text-sm font-normal text-gray-500">({datasetName})</span>
         </h2>
         <div className="flex gap-3">
-          <button
-            onClick={onPrevStep}
-            className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition font-medium cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </button>
           <button
             onClick={onNextStep}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium cursor-pointer"

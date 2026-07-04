@@ -15,6 +15,9 @@ class Config:
     DB_NAME = os.getenv("DB_NAME")
     DB_PORT = int(os.getenv("DB_PORT", 3306))
 
+    MONGO_URI     = os.getenv("MONGO_URI")
+    MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
+
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
     EMAIL_USER = os.getenv("EMAIL_USER")
@@ -22,3 +25,7 @@ class Config:
 
     FRONTEND_URLS = os.getenv("FRONTEND_URLS", "").split(",")
     OTP_EXPIRY_SECONDS = int(os.getenv("OTP_EXPIRY_SECONDS", 300))
+
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+    CLOUDINARY_API_KEY     = os.getenv("CLOUDINARY_API_KEY")
+    CLOUDINARY_API_SECRET  = os.getenv("CLOUDINARY_API_SECRET")

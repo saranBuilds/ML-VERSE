@@ -7,6 +7,11 @@ from werkzeug.utils import secure_filename
 import joblib
 
 from backend.app.authentication.jwt import token_required
+from backend.app.workspace.workspace_db import (
+    create_workspace_doc, get_workspace_meta, get_workspace_doc,
+    update_dataset_uri, update_pipeline_step, set_current_step, set_pipeline_built,
+    set_ml_category,
+)
 
 home_bp = Blueprint("home",__name__)
 
@@ -25,23 +30,32 @@ def category(token_data):
 
     learn_category = data.get('category')
     type_category = data.get('type')
+    # Accept workspace_id from body (new workspaces) or session (existing)
+    workspace_id = data.get('workspace_id') or session.get('workspace_id')
 
     if not learn_category or not type_category:
         return jsonify({"error": "Category and type are required"}), 400
 
-    # 🔥 Store in session
+    # Store in session (fast path)
     session['ml_category'] = learn_category
     session['ml_type'] = type_category
+    if workspace_id:
+        session['workspace_id'] = workspace_id
     print(learn_category)
     print(type_category)
+
+    # Persist to MongoDB so it survives logout / server restart
+    if workspace_id:
+        try:
+            set_ml_category(workspace_id, learn_category, type_category)
+        except Exception as db_err:
+            print(f"[WARN] MongoDB category update failed: {db_err}")
 
     return jsonify({
         "message": "Category stored successfully",
         "category": learn_category,
         "type": type_category
     })
-
-
 UPLOAD_FOLDER = "uploads"
 
 @home_bp.route('/home/category/dataset_upload', methods=['POST'])
@@ -64,6 +78,19 @@ def dataset_upload(token_data):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     dataset.save(file_path)
 
+    # ── Workspace state persistence ─────────────────────────────
+    workspace_id = request.form.get('workspace_id') or session.get('workspace_id')
+    if workspace_id:
+        session['workspace_id'] = workspace_id
+        try:
+            from backend.app.cloudinary_utils import upload_dataset_to_cloudinary
+            cloudinary_url = upload_dataset_to_cloudinary(file_path, workspace_id)
+            update_dataset_uri(workspace_id, cloudinary_url)
+        except Exception as cloud_err:
+            print(f"[WARN] Cloudinary upload failed: {cloud_err}")
+            # Non-fatal: pipeline can still work with local file
+    # ────────────────────────────────────────────────────────────
+
     try:
         if filename.endswith(".csv"):
             df = pd.read_csv(file_path, nrows=preview_rows)
@@ -72,7 +99,7 @@ def dataset_upload(token_data):
 
         df = df.convert_dtypes()
 
-        # 🔥 Store in session
+        # Store in session
         session['dataset_path'] = file_path
 
         # Convert preview to JSON
@@ -113,6 +140,21 @@ def remove_columns(token_data):
             df.to_excel(dataset_path, index=False)
             
         session['dataset_path'] = dataset_path
+
+        # ── Persist pipeline step to MongoDB ──────────────────────
+        workspace_id = session.get('workspace_id')
+        if workspace_id and columns_to_remove:
+            # Accumulate: read existing, merge, write back
+            try:
+                doc = get_workspace_doc(workspace_id)
+                existing = doc.get('pipeline', {}).get('remove_columns', []) if doc else []
+                merged = list(set(existing) | set(columns_to_remove))
+                update_pipeline_step(workspace_id, 'remove_columns', merged)
+                set_current_step(workspace_id, 'missing_values')
+            except Exception as db_err:
+                print(f"[WARN] MongoDB pipeline update failed: {db_err}")
+        # ─────────────────────────────────────────────────────────
+
         return jsonify({
             "message": "Columns removed successfully"
         }),200
@@ -170,6 +212,20 @@ def apply_missing_strategy(token_data):
             df.to_excel(dataset_path, index=False)
 
         session['dataset_path'] = dataset_path
+
+        # ── Persist pipeline step to MongoDB ──────────────────────
+        workspace_id = session.get('workspace_id')
+        if workspace_id and strategy:
+            try:
+                doc = get_workspace_doc(workspace_id)
+                existing = doc.get('pipeline', {}).get('missing_values', {}) if doc else {}
+                existing.update(strategy)
+                update_pipeline_step(workspace_id, 'missing_values', existing)
+                set_current_step(workspace_id, 'encoding')
+            except Exception as db_err:
+                print(f"[WARN] MongoDB pipeline update failed: {db_err}")
+        # ─────────────────────────────────────────────────────────
+
         return jsonify({
             "message": "Missing values applied successfully"
         }),200
@@ -229,6 +285,20 @@ def apply_encoding(token_data):
             df.to_excel(dataset_path, index=False)
 
         session['dataset_path'] = dataset_path
+
+        # ── Persist pipeline step to MongoDB ──────────────────────
+        workspace_id = session.get('workspace_id')
+        if workspace_id and strategy:
+            try:
+                doc = get_workspace_doc(workspace_id)
+                existing = doc.get('pipeline', {}).get('encoding', {}) if doc else {}
+                existing.update(strategy)
+                update_pipeline_step(workspace_id, 'encoding', existing)
+                set_current_step(workspace_id, 'scaling')
+            except Exception as db_err:
+                print(f"[WARN] MongoDB pipeline update failed: {db_err}")
+        # ─────────────────────────────────────────────────────────
+
         return jsonify({
             "message": "Encoding applied successfully"
         }),200
@@ -258,6 +328,21 @@ def apply_scaling(token_data):
             df.to_csv(dataset_path, index=False)
         else:
             df.to_excel(dataset_path, index=False)
+
+        session['dataset_path'] = dataset_path
+
+        # ── Persist pipeline step to MongoDB ──────────────────────
+        workspace_id = session.get('workspace_id')
+        if workspace_id and strategy:
+            try:
+                doc = get_workspace_doc(workspace_id)
+                existing = doc.get('pipeline', {}).get('scaling', {}) if doc else {}
+                existing.update(strategy)
+                update_pipeline_step(workspace_id, 'scaling', existing)
+                set_current_step(workspace_id, 'feature_engineering')
+            except Exception as db_err:
+                print(f"[WARN] MongoDB pipeline update failed: {db_err}")
+        # ─────────────────────────────────────────────────────────
 
         session['dataset_path'] = dataset_path
         return jsonify({

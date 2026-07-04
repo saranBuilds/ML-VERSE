@@ -70,3 +70,114 @@ def update_password(email, new_password):
     cur.close()
     conn.close()
     return True
+
+
+# ------------------------------------------------------------------
+# Workspace helpers
+# ------------------------------------------------------------------
+
+WORKSPACE_SLOTS = [
+    "workspace_id_1",
+    "workspace_id_2",
+    "workspace_id_3",
+    "workspace_id_4",
+    "workspace_id_5",
+]
+
+
+def create_user_workspace_row(username):
+    """
+    Insert a blank user_workspace row for *username* if one does not
+    already exist.  Safe to call on every workspace-create request.
+    """
+    conn, cur = connect_db()
+    cur.execute(
+        "INSERT IGNORE INTO user_workspace (username) VALUES (%s)",
+        (username,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_workspace_slots(username):
+    """
+    Return the full user_workspace row for *username*, or None if the
+    user has no workspace row yet.
+    """
+    conn, cur = connect_db()
+    cur.execute(
+        "SELECT * FROM user_workspace WHERE username = %s",
+        (username,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+
+def add_workspace_id(username, workspace_id):
+    """
+    Find the first NULL slot in user_workspace for *username*, write
+    *workspace_id* into it, and increment total_workspace.
+
+    Returns True on success, False if all 5 slots are already filled.
+    """
+    row = get_workspace_slots(username)
+    if not row:
+        return False
+
+    for slot in WORKSPACE_SLOTS:
+        if row[slot] is None:
+            conn, cur = connect_db()
+            cur.execute(
+                f"UPDATE user_workspace "
+                f"SET {slot} = %s, total_workspace = total_workspace + 1 "
+                f"WHERE username = %s",
+                (workspace_id, username)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return True
+
+    # All slots occupied
+    return False
+
+
+def get_all_workspace_ids(username):
+    """
+    Return a list of all non-null workspace IDs belonging to *username*.
+    """
+    row = get_workspace_slots(username)
+    if not row:
+        return []
+    return [row[slot] for slot in WORKSPACE_SLOTS if row[slot] is not None]
+
+
+def remove_workspace_id(username, workspace_id):
+    """
+    Find the slot that holds *workspace_id* for *username*, set it to NULL,
+    and decrement total_workspace by 1.
+
+    Returns True on success, False if the workspace_id was not found.
+    """
+    row = get_workspace_slots(username)
+    if not row:
+        return False
+
+    for slot in WORKSPACE_SLOTS:
+        if row[slot] == workspace_id:
+            conn, cur = connect_db()
+            cur.execute(
+                f"UPDATE user_workspace "
+                f"SET {slot} = NULL, total_workspace = GREATEST(total_workspace - 1, 0) "
+                f"WHERE username = %s",
+                (username,)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return True
+
+    return False  # workspace_id not found in any slot

@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { UploadCloud, ChevronLeft } from "lucide-react"
+import { UploadCloud } from "lucide-react"
 import api from "../../../api"
 
-export default function DatasetUpload({ setFile, onUploadSuccess, onPrevStep }) {
+export default function DatasetUpload({ setFile, onUploadSuccess, onPrevStep, workspaceId }) {
   const [fileName, setFileName] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -10,6 +10,8 @@ export default function DatasetUpload({ setFile, onUploadSuccess, onPrevStep }) 
   const uploadDataset = async (file) => {
     const formData = new FormData()
     formData.append("dataset", file)
+    // Send workspace_id so the backend can persist to MongoDB
+    if (workspaceId) formData.append("workspace_id", workspaceId)
 
     try {
       setLoading(true)
@@ -67,14 +69,7 @@ export default function DatasetUpload({ setFile, onUploadSuccess, onPrevStep }) 
   return (
     <div className="bg-white shadow-lg rounded-2xl p-6 border border-gray-200">
 
-      <div className="flex items-center mb-6 relative">
-        <button 
-          onClick={onPrevStep}
-          className="absolute left-0 p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
-          title="Go Back"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
+      <div className="flex items-center mb-6">
         <h2 className="text-xl font-semibold text-center w-full">
           Upload Dataset
         </h2>

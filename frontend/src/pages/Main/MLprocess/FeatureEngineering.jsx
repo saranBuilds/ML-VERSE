@@ -1,34 +1,38 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, ChevronLeft, GitMerge, CheckCircle2, RefreshCw, AlertCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft, GitMerge, CheckCircle2, RefreshCw, AlertCircle, History } from "lucide-react";
 import api from "../../../api";
 
-export default function FeatureEngineering({ onNextStep, onPrevStep }) {
+export default function FeatureEngineering({ onNextStep, onPrevStep, savedEncodingStrategy = {}, savedScalingStrategy = {} }) {
   const [objectColumns, setObjectColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
+
   const [strategies, setStrategies] = useState({});
   const [applying, setApplying] = useState(false);
   const [success, setSuccess] = useState("");
+
+  // Were encoding strategies already applied in a previous session?
+  const hasSavedEncoding = Object.keys(savedEncodingStrategy).length > 0;
 
   useEffect(() => {
     const fetchCategoricalColumns = async () => {
       try {
         setLoading(true);
-        // We reuse the EDA endpoint because it already efficiently isolates describing object columns 
         const res = await api.post("/home/mlprocess/EDA");
-        
+
         const describeObj = res.data.describe_object || {};
         const catCols = Object.keys(describeObj);
         setObjectColumns(catCols);
-        
-        // Default to 'label' encoding for everything
+
+        // Build initial strategies:
+        // - If we have saved strategies from a previous session, use those as defaults
+        // - Otherwise fall back to "label" for each column
         const initialStrategies = {};
         catCols.forEach(col => {
-          initialStrategies[col] = "label";
+          initialStrategies[col] = savedEncodingStrategy[col] ?? "label";
         });
         setStrategies(initialStrategies);
-        
+
       } catch (err) {
         console.error("Failed to fetch categorical columns:", err);
         setError(err.response?.data?.error || "Failed to load categorical features from your dataset.");
@@ -36,8 +40,9 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
         setLoading(false);
       }
     };
-    
+
     fetchCategoricalColumns();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleStrategyChange = (colName, strategy) => {
@@ -100,10 +105,25 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
             <GitMerge className="text-indigo-500 w-5 h-5" />
             <h3 className="text-lg font-bold text-slate-800">Categorical Encoding</h3>
           </div>
-          
+
           <p className="text-sm text-gray-500 mb-6">
             Assign a mapping algorithm for each non-numeric column found in your dataset.
           </p>
+
+          {/* Previously-applied encoding banner */}
+          {hasSavedEncoding && (
+            <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+              <History className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 mb-1">
+                  Previously applied encoding strategies — dropdowns pre-filled
+                </p>
+                <p className="text-xs text-amber-700/80">
+                  These strategies were used in your last session. You can change them and re-apply.
+                </p>
+              </div>
+            </div>
+          )}
 
           {objectColumns.length > 0 ? (
             <div className="space-y-4">
@@ -118,10 +138,18 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {objectColumns.map(col => (
                       <tr key={col} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 font-medium text-slate-700">{col}</td>
+                        <td className="px-5 py-3 font-medium text-slate-700">
+                          {col}
+                          {/* Badge if this column had a previously saved strategy */}
+                          {savedEncodingStrategy[col] && (
+                            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded border border-amber-200 uppercase tracking-wide align-middle">
+                              restored
+                            </span>
+                          )}
+                        </td>
                         <td className="px-5 py-3">
-                          <select 
-                            value={strategies[col]} 
+                          <select
+                            value={strategies[col] ?? "label"}
                             onChange={(e) => handleStrategyChange(col, e.target.value)}
                             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 outline-none transition-colors"
                           >
@@ -136,7 +164,7 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="flex justify-end pt-4">
                 <button
                   onClick={applyEncoding}
@@ -144,7 +172,7 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
                   className="flex items-center px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white rounded-xl font-medium shadow-sm transition-all shadow-indigo-500/20"
                 >
                   {applying ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <GitMerge className="w-4 h-4 mr-2" />}
-                  Encode Columns
+                  {hasSavedEncoding ? "Re-encode Columns" : "Encode Columns"}
                 </button>
               </div>
             </div>
@@ -164,10 +192,10 @@ export default function FeatureEngineering({ onNextStep, onPrevStep }) {
             </div>
           )}
         </div>
-        
+
         {objectColumns.length === 0 && (
           <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800 leading-relaxed">
               If you just completed One-Hot Encoding in a previous step, your dataset might now have vastly expanded dimensions. Click "Next Step" to proceed.
             </p>

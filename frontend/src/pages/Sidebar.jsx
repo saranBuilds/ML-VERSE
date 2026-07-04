@@ -9,7 +9,7 @@ function Sidebar({ user, activePage, setActivePage }) {
   ]
 
   return (
-    <aside className="w-64 h-screen bg-white border-r flex flex-col">
+    <aside className="w-64 sticky top-0 h-screen bg-white border-r flex flex-col shrink-0">
 
       <div className="px-6 py-5 border-b">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">

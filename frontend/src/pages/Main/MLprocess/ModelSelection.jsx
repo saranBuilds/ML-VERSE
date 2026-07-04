@@ -34,12 +34,12 @@ import Pca from "./dimensionality_reduction/Pca";
 import Tsne from "./dimensionality_reduction/Tsne";
 import TruncatedSvd from "./dimensionality_reduction/TruncatedSvd";
 
-export default function ModelSelection({ category, type, onPrevStep, onNextStep }) {
+export default function ModelSelection({ category, type, savedTargetColumn, onPrevStep, onNextStep }) {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [targetColumn, setTargetColumn] = useState("");
+  const [targetColumn, setTargetColumn] = useState(savedTargetColumn ?? "");
   const [testSize, setTestSize] = useState(0.2);
   const [selectedModel, setSelectedModel] = useState("");
   
@@ -72,7 +72,8 @@ export default function ModelSelection({ category, type, onPrevStep, onNextStep 
         const res = await api.post("/home/mlprocess/EDA");
         if (res.data.columns) {
           setColumns(res.data.columns);
-          if (res.data.columns.length > 0) {
+          // Only auto-select last column when no saved target was provided
+          if (!savedTargetColumn && res.data.columns.length > 0) {
             setTargetColumn(res.data.columns[res.data.columns.length - 1]);
           }
         }
@@ -84,6 +85,7 @@ export default function ModelSelection({ category, type, onPrevStep, onNextStep 
       }
     };
     fetchColumns();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const REGRESSION_MODELS = [
@@ -226,7 +228,14 @@ export default function ModelSelection({ category, type, onPrevStep, onNextStep 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Target Variable (Y)</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                  Target Variable (Y)
+                  {savedTargetColumn && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded border border-amber-200 uppercase tracking-wide">
+                      restored
+                    </span>
+                  )}
+                </label>
                 <select
                   value={targetColumn}
                   onChange={(e) => setTargetColumn(e.target.value)}

@@ -14,7 +14,9 @@ def create_app():
     )
     from backend.app.authentication.auth import auth_bp
     from backend.app.Main.home import home_bp
-    app.register_blueprint(auth_bp,url_prefix='/auth')
-    app.register_blueprint(home_bp,url_prefix='/')
+    from backend.app.workspace.workspace import workspace_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(home_bp, url_prefix='/')
+    app.register_blueprint(workspace_bp, url_prefix='/home/workspace')
 
     return app
