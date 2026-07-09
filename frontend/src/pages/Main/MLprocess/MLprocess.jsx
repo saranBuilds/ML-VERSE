@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import api from "../../../api"
 import { ChevronLeft, FolderOpen } from "lucide-react"
 import MLWorkflowHeader from "./MLWorkflowHeader"
 import Category from "./temp"
@@ -24,6 +25,17 @@ const STEP_INDEX_MAP = {
   model_training:      7,
 }
 
+// ─── Numeric index → canonical step name (for persistence on navigation) ─────
+const INDEX_TO_STEP = {
+  1: "dataset_upload",
+  2: "eda",            // preview → still counts as having reached eda
+  3: "missing_values",
+  4: "eda",
+  5: "encoding",
+  6: "model_selection",
+  7: "model_training",
+}
+
 const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialType, initialPipeline }) => {
   const [category, setCategory] = useState(initialCategory ?? "")
   const [type, setType] = useState(initialType ?? "")
@@ -38,6 +50,20 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
   const savedEncodingStrategy = initialPipeline?.encoding        ?? {}
   const savedScalingStrategy  = initialPipeline?.scaling         ?? {}
   const savedTargetColumn    = initialPipeline?.target_column    ?? ""
+
+  // ─── Persist current_step to MongoDB whenever user navigates forward ─────────
+  const persistStep = useCallback((numericStep) => {
+    const stepName = INDEX_TO_STEP[numericStep]
+    if (!stepName || !workspace?.workspace_id) return
+    api.post(`/home/workspace/update_step/${workspace.workspace_id}`, { step: stepName })
+      .catch((err) => console.warn("[persistStep] failed to save step:", err))
+  }, [workspace?.workspace_id])
+
+  // Helper: go to a step AND persist it
+  const goToStep = useCallback((step) => {
+    setActiveStep(step)
+    persistStep(step)
+  }, [persistStep])
 
   // When the parent provides initialStep (from workspace continue), apply it
   useEffect(() => {
@@ -60,7 +86,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
 
   const handleTypeChange = (value) => {
     setType(value)
-    setActiveStep(1) // move to upload step
+    goToStep(1) // move to upload step
   }
 
   return (
@@ -114,7 +140,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 1 && (
             <DatasetUpload
               setFile={setFile}
-              onUploadSuccess={() => setActiveStep(2)}
+              onUploadSuccess={() => goToStep(2)}
               onPrevStep={() => setActiveStep(0)}
               workspaceId={workspace?.workspace_id}
             />
@@ -123,7 +149,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {/* Step 2 → Dataset Preview */}
           {activeStep === 2 && (
             <DatasetPreview
-              onNextStep={() => setActiveStep(3)}
+              onNextStep={() => goToStep(3)}
               onPrevStep={() => setActiveStep(1)}
             />
           )}
@@ -131,7 +157,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {/* Step 3 → Data Cleaning */}
           {activeStep === 3 && (
             <DataCleaning
-              onNextStep={() => setActiveStep(4)}
+              onNextStep={() => goToStep(4)}
               onPrevStep={() => setActiveStep(2)}
               savedRemovedCols={savedRemovedCols}
               savedMissingStrategy={savedMissingStrategy}
@@ -141,7 +167,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {/* Step 4 → Exploratory Data Analysis (EDA) */}
           {activeStep === 4 && (
             <Eda
-              onNextStep={() => setActiveStep(5)}
+              onNextStep={() => goToStep(5)}
               onPrevStep={() => setActiveStep(3)}
             />
           )}
@@ -149,7 +175,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {/* Step 5 → Feature Engineering */}
           {activeStep === 5 && (
             <FeatureEngineering
-              onNextStep={() => setActiveStep(6)}
+              onNextStep={() => goToStep(6)}
               onPrevStep={() => setActiveStep(4)}
               savedEncodingStrategy={savedEncodingStrategy}
               savedScalingStrategy={savedScalingStrategy}
@@ -165,7 +191,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
               onPrevStep={() => setActiveStep(5)}
               onNextStep={(config) => {
                 setTrainingConfig(config)
-                setActiveStep(7)
+                goToStep(7)
               }}
             />
           )}
@@ -177,7 +203,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
               onPrevStep={() => setActiveStep(6)}
               onNextStep={(result) => {
                 setTrainingResult(result)
-                setActiveStep(8)
+                goToStep(8)
               }}
             />
           )}

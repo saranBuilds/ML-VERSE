@@ -392,3 +392,46 @@ def delete_workspace(token_data, workspace_id):
         pass  # uploads folder doesn't exist yet — nothing to clean
 
     return jsonify({"message": "Workspace deleted successfully"}), 200
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /workspace/update_step/<workspace_id>
+# ──────────────────────────────────────────────────────────────────────────────
+
+@workspace_bp.route("/update_step/<workspace_id>", methods=["POST"])
+@token_required
+def update_step(token_data, workspace_id):
+    """
+    Persist the current pipeline step for a workspace, even if no pipeline
+    operation was performed (e.g. user just visited/passed through a step).
+
+    Body (JSON):
+        { "step": "<step_name>" }
+
+    Valid step names: dataset_upload, eda, missing_values, encoding,
+                      scaling, feature_engineering, model_selection, model_training
+    """
+    VALID_STEPS = {
+        "dataset_upload", "eda", "missing_values", "encoding",
+        "scaling", "feature_engineering", "model_selection", "model_training",
+    }
+
+    username = token_data["user"]
+
+    # Validate ownership
+    owned_ids = get_all_workspace_ids(username)
+    if workspace_id not in owned_ids:
+        return jsonify({"error": "Workspace not found or access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    step_name = data.get("step", "").strip()
+
+    if not step_name or step_name not in VALID_STEPS:
+        return jsonify({"error": f"Invalid or missing step name. Valid steps: {sorted(VALID_STEPS)}"}), 400
+
+    try:
+        set_current_step(workspace_id, step_name)
+    except Exception as e:
+        return jsonify({"error": f"Failed to update step: {str(e)}"}), 500
+
+    return jsonify({"message": f"current_step updated to '{step_name}'", "current_step": step_name}), 200
