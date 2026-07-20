@@ -19,6 +19,7 @@ from backend.app.workspace.workspace_db import (
     get_workspace_doc,
     set_current_step,
     delete_workspace_doc,
+    clear_pipeline_from_step,
 )
 
 workspace_bp = Blueprint("workspace", __name__)
@@ -74,35 +75,54 @@ def _reconstruct_df(doc: dict, up_to_step: str) -> pd.DataFrame:
 
     pipeline = doc.get("pipeline", {})
 
-    STEP_ORDER = ["eda", "missing_values", "encoding", "scaling", "feature_engineering", "model_selection"]
+    # Determine which transformations to apply based on the target step
+    apply_remove_cols = False
+    apply_missing = False
+    apply_encoding = False
+    apply_scaling = False
 
-    def _should_apply(step_name: str) -> bool:
-        """Return True if this step comes BEFORE the target step."""
-        if up_to_step not in STEP_ORDER:
-            return True  # apply everything for unknown late steps
-        return STEP_ORDER.index(step_name) < STEP_ORDER.index(up_to_step)
+    if up_to_step in ["dataset_upload", "missing_values"]:
+        # Raw dataset or starting cleaning
+        pass
+    elif up_to_step in ["eda", "encoding", "scaling", "feature_engineering"]:
+        # Cleaning completed
+        apply_remove_cols = True
+        apply_missing = True
+    elif up_to_step in ["model_selection", "model_training", "app_deployment"]:
+        # Cleaning and feature engineering completed
+        apply_remove_cols = True
+        apply_missing = True
+        apply_encoding = True
+        apply_scaling = True
+    else:
+        # Default: apply everything
+        apply_remove_cols = True
+        apply_missing = True
+        apply_encoding = True
+        apply_scaling = True
 
     # 1. Remove columns
     remove_cols = pipeline.get("remove_columns", [])
-    if remove_cols and _should_apply("missing_values"):
+    if remove_cols and apply_remove_cols:
         df = remove_columns(df, remove_cols)
 
     # 2. Missing values
     missing_strategy = pipeline.get("missing_values", {})
-    if missing_strategy and _should_apply("encoding"):
+    if missing_strategy and apply_missing:
         df = apply_missing_strategy(df, missing_strategy)
 
     # 3. Encoding
     encoding_strategy = pipeline.get("encoding", {})
-    if encoding_strategy and _should_apply("scaling"):
+    if encoding_strategy and apply_encoding:
         df = encode_categorical_columns(df, encoding_strategy)
 
     # 4. Scaling
     scaling_strategy = pipeline.get("scaling", {})
-    if scaling_strategy and _should_apply("feature_engineering"):
+    if scaling_strategy and apply_scaling:
         df = feature_scale(df, scaling_strategy)
 
     return df, dest_path
+
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -435,3 +455,87 @@ def update_step(token_data, workspace_id):
         return jsonify({"error": f"Failed to update step: {str(e)}"}), 500
 
     return jsonify({"message": f"current_step updated to '{step_name}'", "current_step": step_name}), 200
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /workspace/rebuild/<workspace_id>
+# ──────────────────────────────────────────────────────────────────────────────
+
+@workspace_bp.route("/rebuild/<workspace_id>", methods=["POST"])
+@token_required
+def rebuild_workspace(token_data, workspace_id):
+    """
+    Rebuild the dataset by replaying transformations up to target_step,
+    clearing any downstream pipeline configurations.
+    """
+    VALID_STEPS = {
+        "dataset_upload", "eda", "missing_values", "encoding",
+        "scaling", "feature_engineering", "model_selection", "model_training",
+    }
+
+    username = token_data["user"]
+
+    # Validate ownership
+    owned_ids = get_all_workspace_ids(username)
+    if workspace_id not in owned_ids:
+        return jsonify({"error": "Workspace not found or access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    target_step = data.get("target_step", "").strip()
+
+    if not target_step or target_step not in VALID_STEPS:
+        return jsonify({"error": f"Invalid or missing target step. Valid steps: {sorted(VALID_STEPS)}"}), 400
+
+    try:
+        # 1. Clear pipeline elements from target_step onwards
+        clear_pipeline_from_step(workspace_id, target_step)
+
+        # 2. Get updated workspace doc
+        doc = get_workspace_doc(workspace_id)
+        if not doc:
+            return jsonify({"error": "Workspace document not found"}), 404
+
+        dataset_uri = doc["metadata"].get("dataset_uri")
+        columns = []
+        reconstructed_path = None
+
+        # 3. Reconstruct dataframe up to the target_step
+        if dataset_uri:
+            df, reconstructed_path = _reconstruct_df(doc, target_step)
+            columns = list(df.columns)
+
+            # Persist to disk
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            if reconstructed_path.endswith(".xlsx") or reconstructed_path.endswith(".xls"):
+                df.to_excel(reconstructed_path, index=False)
+            else:
+                csv_path = reconstructed_path.rsplit(".", 1)[0] + ".csv"
+                df.to_csv(csv_path, index=False)
+                reconstructed_path = csv_path
+
+        # 4. Set session
+        session["workspace_id"] = workspace_id
+        session["current_step"] = target_step
+        if reconstructed_path:
+            session["dataset_path"] = reconstructed_path
+        if columns:
+            session["columns"] = columns
+
+        # 5. Set step in MongoDB
+        set_current_step(workspace_id, target_step)
+
+        # Map step to numeric React index
+        active_step = STEP_TO_INDEX.get(target_step, 1)
+
+        return jsonify({
+            "message": "Pipeline rebuilt successfully",
+            "columns": columns,
+            "current_step": target_step,
+            "active_step": active_step
+        }), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Rebuild failed: {str(e)}"}), 500
+

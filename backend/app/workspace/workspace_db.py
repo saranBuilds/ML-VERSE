@@ -159,6 +159,51 @@ def set_ml_category(workspace_id: str, ml_category: str, ml_type: str) -> None:
     )
 
 
+def clear_pipeline_from_step(workspace_id: str, target_step: str) -> None:
+    """
+    Clear pipeline fields that are at or after the target step when navigating backwards.
+    """
+    db = get_mongo_db()
+    updates = {}
+    
+    if target_step in ["dataset_upload", "eda"]:
+        updates = {
+            "pipeline.remove_columns": [],
+            "pipeline.missing_values": {},
+            "pipeline.encoding": {},
+            "pipeline.scaling": {},
+            "pipeline.target_column": None,
+            "state.pipeline_built": False,
+        }
+    elif target_step == "missing_values":
+        updates = {
+            "pipeline.remove_columns": [],
+            "pipeline.missing_values": {},
+            "pipeline.encoding": {},
+            "pipeline.scaling": {},
+            "pipeline.target_column": None,
+            "state.pipeline_built": False,
+        }
+    elif target_step in ["encoding", "scaling", "feature_engineering"]:
+        updates = {
+            "pipeline.encoding": {},
+            "pipeline.scaling": {},
+            "pipeline.target_column": None,
+            "state.pipeline_built": False,
+        }
+    elif target_step == "model_selection":
+        updates = {
+            "pipeline.target_column": None,
+            "state.pipeline_built": False,
+        }
+
+    if updates:
+        db[COLLECTION].update_one(
+            {"metadata.workspace_id": workspace_id},
+            {"$set": updates}
+        )
+
+
 def delete_workspace_doc(workspace_id: str) -> bool:
     """
     Delete the workspace document from MongoDB.
@@ -168,3 +213,4 @@ def delete_workspace_doc(workspace_id: str) -> bool:
     db = get_mongo_db()
     result = db[COLLECTION].delete_one({"metadata.workspace_id": workspace_id})
     return result.deleted_count > 0
+

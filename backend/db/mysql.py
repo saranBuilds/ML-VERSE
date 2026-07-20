@@ -3,10 +3,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from backend.config import Config
 
 def connect_db():
-    print("DB_HOST:", repr(Config.DB_HOST))
-    print("DB_PORT:", repr(Config.DB_PORT))
-    print("DB_USER:", repr(Config.DB_USER))
-    print("DB_NAME:", repr(Config.DB_NAME))
 
     conn = mysql.connector.connect(
         host=Config.DB_HOST,

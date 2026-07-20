@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import api from "../../../api"
-import { ChevronLeft, FolderOpen } from "lucide-react"
+import { ChevronLeft, FolderOpen, Loader2 } from "lucide-react"
 import MLWorkflowHeader from "./MLWorkflowHeader"
 import Category from "./temp"
 import DatasetUpload from "./DatasetUpload"
@@ -43,6 +43,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
   const [file, setFile] = useState(null)
   const [trainingConfig, setTrainingConfig] = useState(null)
   const [trainingResult, setTrainingResult] = useState(null)
+  const [isRebuilding, setIsRebuilding] = useState(false)
 
   // Derive saved pipeline slices (safe defaults when no pipeline is restored)
   const savedRemovedCols     = initialPipeline?.remove_columns   ?? []
@@ -64,6 +65,37 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
     setActiveStep(step)
     persistStep(step)
   }, [persistStep])
+
+  // Helper: go back to a step AND rebuild the pipeline up to that step
+  const goBackToStep = useCallback(async (numericStep, targetStepName) => {
+    if (!workspace?.workspace_id) {
+      setActiveStep(numericStep)
+      return
+    }
+    try {
+      setIsRebuilding(true)
+      const res = await api.post(`/home/workspace/rebuild/${workspace.workspace_id}`, {
+        target_step: targetStepName
+      })
+      const { columns, active_step } = res.data
+      if (columns) {
+        sessionStorage.setItem("columns", JSON.stringify(columns))
+      }
+      if (numericStep < 7) {
+        setTrainingConfig(null)
+      }
+      if (numericStep < 8) {
+        setTrainingResult(null)
+      }
+      setActiveStep(active_step ?? numericStep)
+    } catch (err) {
+      console.error("[goBackToStep] failed:", err)
+      alert("Error going back and rebuilding pipeline. Please try again.")
+    } finally {
+      setIsRebuilding(false)
+    }
+  }, [workspace?.workspace_id])
+
 
   // When the parent provides initialStep (from workspace continue), apply it
   useEffect(() => {
@@ -158,7 +190,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 3 && (
             <DataCleaning
               onNextStep={() => goToStep(4)}
-              onPrevStep={() => setActiveStep(2)}
+              onPrevStep={() => goBackToStep(2, "eda")}
               savedRemovedCols={savedRemovedCols}
               savedMissingStrategy={savedMissingStrategy}
             />
@@ -168,7 +200,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 4 && (
             <Eda
               onNextStep={() => goToStep(5)}
-              onPrevStep={() => setActiveStep(3)}
+              onPrevStep={() => goBackToStep(3, "missing_values")}
             />
           )}
 
@@ -176,7 +208,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 5 && (
             <FeatureEngineering
               onNextStep={() => goToStep(6)}
-              onPrevStep={() => setActiveStep(4)}
+              onPrevStep={() => goBackToStep(4, "eda")}
               savedEncodingStrategy={savedEncodingStrategy}
               savedScalingStrategy={savedScalingStrategy}
             />
@@ -188,7 +220,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
               category={category}
               type={type}
               savedTargetColumn={savedTargetColumn}
-              onPrevStep={() => setActiveStep(5)}
+              onPrevStep={() => goBackToStep(5, "encoding")}
               onNextStep={(config) => {
                 setTrainingConfig(config)
                 goToStep(7)
@@ -200,7 +232,7 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 7 && (
             <ModelTraining
               config={trainingConfig}
-              onPrevStep={() => setActiveStep(6)}
+              onPrevStep={() => goBackToStep(6, "model_selection")}
               onNextStep={(result) => {
                 setTrainingResult(result)
                 goToStep(8)
@@ -212,12 +244,20 @@ const MLprocess = ({ workspace, onBack, initialStep, initialCategory, initialTyp
           {activeStep === 8 && (
             <AppDeployment
               result={trainingResult}
-              onPrevStep={() => setActiveStep(7)}
+              onPrevStep={() => goBackToStep(7, "model_training")}
             />
           )}
 
         </div>
       </div>
+
+      {isRebuilding && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin mb-4" />
+          <p className="text-lg font-semibold animate-pulse">Rebuilding Pipeline State...</p>
+          <p className="text-sm text-slate-300 mt-2">Restoring dataset to previous stage</p>
+        </div>
+      )}
 
     </div>
   )

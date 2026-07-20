@@ -16,6 +16,8 @@ def get_mongo_db():
 
     if _db is None:
         _client = MongoClient(Config.MONGO_URI, serverSelectionTimeoutMS=5000)
+        print(Config.MONGO_URI)
+        print(Config.MONGO_DB_NAME)
         # Ping to surface connection errors early
         _client.admin.command("ping")
         _db = _client[Config.MONGO_DB_NAME]
